@@ -64,7 +64,7 @@ resource "aws_lb_listener" "http" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.glitchtip_tg.arn
+    target_group_arn = aws_lb_target_group.elasticsearch_tg.arn
   }
 }
 
@@ -346,31 +346,98 @@ resource "aws_ecs_task_definition" "glitchtip" {
   cpu                      = "256"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
 
-  container_definitions = jsonencode([{
-    name      = "glitchtip"
-    image     = "glitchtip/glitchtip:latest"
-    cpu       = 256
-    memory    = 512
-    essential = true
-    portMappings = [{
-      containerPort = 8000
-      hostPort      = 8000
-    }]
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = "/ecs/glitchtip"
-        "awslogs-region"        = "us-east-1"
-        "awslogs-stream-prefix" = "glitchtip"
-      }
+  container_definitions = jsonencode([
+    {
+      name      = "glitchtip"
+      image     = "glitchtip/glitchtip"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 8000
+          hostPort      = 8000
+        }
+      ]
+      environment = [
+        {
+          name  = "DATABASE_URL"
+          value = "postgres://postgre:Broomble123@database-1.c58gaqk06m5v.us-east-1.rds.amazonaws.com:5432/postgres"
+        },
+        {
+          name  = "SECRET_KEY"
+          value = "c4NQqyBI8_-80-xlpUKRyMk7yMjgfODxGyR2ZActm00GXGUudnfvsOFeindDy-8DWhw"
+        },
+        {
+          name  = "EMAIL_URL"
+          value = "consolemail://"
+        },
+        {
+          name  = "PORT"
+          value = "8000"
+        },
+        {
+          name  = "GLITCHTIP_DOMAIN"
+          value = "https://app.glitchtip.com"
+        },
+        {
+          name  = "DEFAULT_FROM_EMAIL"
+          value = "email@glitchtip.com"
+        },
+        {
+          name  = "CELERY_WORKER_AUTOSCALE"
+          value = "1,3"
+        },
+        {
+          name  = "CELERY_WORKER_MAX_TASKS_PER_CHILD"
+          value = "10000"
+        }
+      ]
+    },
+    {
+      name      = "worker"
+      image     = "glitchtip/glitchtip"
+      essential = false
+      command   = ["./bin/run-celery-with-beat.sh"]
+      environment = [
+        {
+          name  = "DATABASE_URL"
+          value = "postgres://postgre:Broomble123@database-1.c58gaqk06m5v.us-east-1.rds.amazonaws.com:5432/postgres"
+        },
+        {
+          name  = "SECRET_KEY"
+          value = "c4NQqyBI8_-80-xlpUKRyMk7yMjgfODxGyR2ZActm00GXGUudnfvsOFeindDy-8DWhw"
+        },
+        {
+          name  = "PORT"
+          value = "8000"
+        },
+        {
+          name  = "EMAIL_URL"
+          value = "consolemail://"
+        },
+        {
+          name  = "GLITCHTIP_DOMAIN"
+          value = "https://app.glitchtip.com"
+        },
+        {
+          name  = "DEFAULT_FROM_EMAIL"
+          value = "email@glitchtip.com"
+        },
+        {
+          name  = "CELERY_WORKER_AUTOSCALE"
+          value = "1,3"
+        },
+        {
+          name  = "CELERY_WORKER_MAX_TASKS_PER_CHILD"
+          value = "10000"
+        }
+      ]
     }
-  }])
+  ])
 }
 
 resource "aws_cloudwatch_log_group" "glitchtip_logs" {
   name = "/ecs/glitchtip"
 }
-
 
 #################################################### ELk ###################################################################
 
